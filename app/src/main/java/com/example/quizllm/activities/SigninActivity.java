@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.quizllm.R;
+import com.example.quizllm.util.PasswordHasher;
 
 public class SigninActivity extends AppCompatActivity {
 
@@ -27,11 +28,19 @@ public class SigninActivity extends AppCompatActivity {
         btnSignup = findViewById(R.id.signupButton);
 
         btnSignup.setOnClickListener(v -> {
-            String email = etEmail.getText().toString();
+            String email = etEmail.getText().toString().trim();
             String password = etPassword.getText().toString();
 
             if (email.isEmpty() || password.isEmpty()) {
                 Toast.makeText(this, "All fields are required", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, "Enter a valid email address", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (password.length() < 6) {
+                Toast.makeText(this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -39,7 +48,8 @@ public class SigninActivity extends AppCompatActivity {
             SharedPreferences.Editor editor = sharedPreferences.edit();
 
             editor.putString("email", email);
-            editor.putString("password", password);
+            editor.putString("password_hash", PasswordHasher.hash(password));
+            editor.remove("password"); // clear any plain-text value from older versions
             editor.apply();
 
             Toast.makeText(this, "Signup successful. Please log in.", Toast.LENGTH_SHORT).show();
