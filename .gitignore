@@ -13,3 +13,12 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# IDE
+/.idea/
+
+# Python (server)
+__pycache__/
+.pytest_cache/
+.venv/
+.env

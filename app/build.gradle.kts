@@ -14,6 +14,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Quiz server base URL. Override in gradle.properties or with -PquizApiUrl=...
+        // 10.0.2.2 is the host machine as seen from the Android emulator.
+        val quizApiUrl = (project.findProperty("quizApiUrl") as String?) ?: "http://10.0.2.2:5001/"
+        buildConfigField("String", "QUIZ_API_URL", "\"$quizApiUrl\"")
     }
 
     buildTypes {
@@ -24,6 +29,9 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

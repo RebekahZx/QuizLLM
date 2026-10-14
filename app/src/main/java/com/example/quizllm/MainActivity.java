@@ -7,14 +7,10 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
-import com.example.quizllm.activities.QuizActivity;
 import com.example.quizllm.activities.SigninActivity;
+import com.example.quizllm.util.PasswordHasher;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
         btnGoToSignup = findViewById(R.id.btnSignup);
 
         btnLogin.setOnClickListener(v -> {
-            String inputEmail = etEmail.getText().toString();
+            String inputEmail = etEmail.getText().toString().trim();
             String inputPassword = etPassword.getText().toString();
 
             if (inputEmail.isEmpty() || inputPassword.isEmpty()) {
@@ -42,9 +38,22 @@ public class MainActivity extends AppCompatActivity {
 
             SharedPreferences sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE);
             String savedEmail = sharedPreferences.getString("email", "");
-            String savedPassword = sharedPreferences.getString("password", "");
+            String savedHash = sharedPreferences.getString("password_hash", null);
+            String legacyPassword = sharedPreferences.getString("password", null);
 
-            if (inputEmail.equals(savedEmail) && inputPassword.equals(savedPassword)) {
+            boolean ok = inputEmail.equals(savedEmail)
+                    && (PasswordHasher.verify(inputPassword, savedHash)
+                        || (savedHash == null && inputPassword.equals(legacyPassword)));
+
+            if (ok && savedHash == null) {
+                // Account created by an older version: replace the plain-text password with a hash.
+                sharedPreferences.edit()
+                        .putString("password_hash", PasswordHasher.hash(inputPassword))
+                        .remove("password")
+                        .apply();
+            }
+
+            if (ok) {
                 Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show();
                 startActivity(new Intent(MainActivity.this, SelectTopicActivity.class));
                 finish();
