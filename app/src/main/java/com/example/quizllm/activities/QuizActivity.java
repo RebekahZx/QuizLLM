@@ -13,8 +13,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.quizllm.Models.Question;
 import com.example.quizllm.Network.ApiService;
+import com.example.quizllm.BuildConfig;
 import com.example.quizllm.R;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Callback;
@@ -31,7 +33,7 @@ public class QuizActivity extends AppCompatActivity {
     private RadioButton optionA, optionB, optionC, optionD;
     private Button nextButton;
 
-    private List<Question> questions;
+    private final List<Question> questions = new ArrayList<>();
     private int currentIndex = 0;
     private int score = 0;
     private String selectedAnswer = "";
@@ -49,12 +51,16 @@ public class QuizActivity extends AppCompatActivity {
         optionD = findViewById(R.id.optionD);
         nextButton = findViewById(R.id.nextBtn);
 
+        nextButton.setEnabled(false); // enabled once questions have loaded
+        questionTextView.setText("Generating your quiz…");
+
         String topic = getIntent().getStringExtra("topic");
         if (topic == null || topic.isEmpty()) topic = "default";
 
         loadQuiz(topic);
 
         nextButton.setOnClickListener(v -> {
+            if (currentIndex >= questions.size()) return;
             int selectedId = optionsGroup.getCheckedRadioButtonId();
             if (selectedId == -1) {
                 Toast.makeText(QuizActivity.this, "Please select an option", Toast.LENGTH_SHORT).show();
@@ -84,41 +90,10 @@ public class QuizActivity extends AppCompatActivity {
     }
 
 
-//private void loadQuiz() {
-//    Retrofit retrofit = new Retrofit.Builder()
-//            .baseUrl("http://10.0.2.2:5001/")  // Use your local IP if on a real device
-//            .addConverterFactory(GsonConverterFactory.create())
-//            .build();
-//
-//    ApiService api = retrofit.create(ApiService.class);
-//
-//
-//    Call<ApiService.ApiResponse> call = api.getQuiz("Java");  // This is where we pass "pop"
-//
-//    // Enqueue the call asynchronously
-//    call.enqueue(new Callback<ApiService.ApiResponse>() {
-//        @Override
-//        public void onResponse(Call<ApiService.ApiResponse> call, Response<ApiService.ApiResponse> response) {
-//            if (response.isSuccessful() && response.body() != null) {
-//                // Load the quiz questions into the questions list
-//                questions = response.body().getQuiz();
-//                // Display the first question
-//                displayQuestion(currentIndex);
-//            } else {
-//                Toast.makeText(QuizActivity.this, "Failed to load quiz", Toast.LENGTH_SHORT).show();
-//            }
-//        }
-//
-//        @Override
-//        public void onFailure(Call<ApiService.ApiResponse> call, Throwable t) {
-//            Toast.makeText(QuizActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
-//        }
-//    });
-//}
 
     private void loadQuiz(String topic) {
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:5001/")
+                .baseUrl(BuildConfig.QUIZ_API_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -129,21 +104,36 @@ public class QuizActivity extends AppCompatActivity {
         call.enqueue(new Callback<ApiService.ApiResponse>() {
             @Override
             public void onResponse(Call<ApiService.ApiResponse> call, Response<ApiService.ApiResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    questions = response.body().getQuiz();
-                    displayQuestion(currentIndex);
-                } else {
-                    Toast.makeText(QuizActivity.this, "Failed to load quiz", Toast.LENGTH_SHORT).show();
+                List<Question> loaded = response.isSuccessful() && response.body() != null
+                        ? response.body().getQuiz() : null;
+                if (loaded != null) {
+                    for (Question q : loaded) {
+                        // The screen has exactly four options; skip anything else.
+                        if (q != null && q.getOptions() != null && q.getOptions().size() == 4) {
+                            questions.add(q);
+                        }
+                    }
                 }
+                if (questions.isEmpty()) {
+                    showLoadError("Couldn't load a quiz for this topic. Please try again.");
+                    return;
+                }
+                nextButton.setEnabled(true);
+                displayQuestion(currentIndex);
             }
 
             @Override
             public void onFailure(Call<ApiService.ApiResponse> call, Throwable t) {
-                Toast.makeText(QuizActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                showLoadError("Can't reach the quiz server (" + BuildConfig.QUIZ_API_URL + "). Is it running?");
             }
         });
     }
 
+
+    private void showLoadError(String message) {
+        questionTextView.setText(message);
+        Toast.makeText(QuizActivity.this, message, Toast.LENGTH_LONG).show();
+    }
 
     private void displayQuestion(int index) {
         Question q = questions.get(index);
